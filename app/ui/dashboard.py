@@ -12,7 +12,7 @@ import cv2
 import numpy as np
 import os
 
-Builder.load_file(os.path.join(os.path.dirname(__file__), '../../assets/dashboard.kv'))
+Builder.load_file(os.path.join(os.path.dirname(__file__), 'dashboard.kv'))
 
 class DashboardScreen(Screen):
     def __init__(self, **kwargs):
@@ -44,17 +44,29 @@ class DashboardScreen(Screen):
         # Initialize camera
         self.camera = Camera(resolution=(640, 480), play=True)
         self.capture_mode = False
+        try:
+              self.camera = Camera(resolution=(640, 480), play=True)
+              self.camera.bind(on_texture=self.on_camera_frame)
+        except Exception as e:
+              print(f"Camera initialization failed: {e}")
+              self.camera = None
+              self.capture_btn.disabled = True
+              self.result_label.text = "Camera not available"
     
     def go_to_guide(self, instance):
         self.manager.current = 'guide'
     
     def capture_signature(self, instance):
-        if not self.capture_mode:
+          if not self.capture_mode:
+                if self.camera is None:
+                       self.show_file_chooser()
+                       return
+          if not self.capture_mode:
             self.capture_mode = True
             self.layout.remove_widget(self.result_image)
             self.layout.add_widget(self.camera, index=0)
             self.capture_btn.text = "Take Photo"
-        else:
+          else:
             # Save the camera image
             texture = self.camera.texture
             w, h = texture.size
@@ -71,7 +83,24 @@ class DashboardScreen(Screen):
             self.layout.add_widget(self.result_image, index=0)
             self.capture_mode = False
             self.capture_btn.text = "Capture Signature"
-    
+            
+    def show_file_chooser(self):
+         from kivy.uix.filechooser import FileChooserListView
+         content = FileChooserListView()
+         popup = Popup(title="Select signature image", content=content, size_hint=(0.9, 0.9))
+         content.bind(on_submit=lambda x, file, _: self.process_selected_file(file, popup))
+         popup.open()
+
+def process_selected_file(self, file_path, popup):
+    popup.dismiss()
+    try:
+        image = cv2.imread(file_path)
+        if image is not None:
+            self.process_image(image)
+        else:
+            raise ValueError("Could not read image")
+    except Exception as e:
+        self.result_label.text = f"Error: {str(e)}"
     def process_image(self, image_data):
         # Here you would call your detection and verification models
         # This is a placeholder for the actual processing

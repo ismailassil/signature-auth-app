@@ -16,4 +16,4 @@ from kivy.lang import Builder
 import os
 
 # Load KV language templates
-Builder.load_file(os.path.join(os.path.dirname(__file__), '../assets/ui.kv'))
+Builder.load_file(os.path.join(os.path.dirname(__file__), 'ui.kv'))

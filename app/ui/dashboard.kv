@@ -1,0 +1,30 @@
+# assets/dashboard.kv
+<DashboardScreen>:
+    BoxLayout:
+        orientation: 'vertical'
+        padding: 10
+        spacing: 10
+
+        Image:
+            id: result_image
+            size_hint: (1, 0.7)
+
+        BoxLayout:
+            size_hint: (1, 0.15)
+            spacing: 10
+
+            Button:
+                id: capture_btn
+                text: "Capture Signature"
+                on_press: root.capture_signature()
+
+            Button:
+                id: guide_btn
+                text: "User Guide"
+                on_press: root.go_to_guide()
+
+        Label:
+            id: result_label
+            size_hint: (1, 0.15)
+            text: "Ready to verify"
+            color: 0, 0, 0, 1

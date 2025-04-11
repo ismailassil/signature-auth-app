@@ -1,0 +1,25 @@
+# assets/ui.kv
+<DashboardScreen>:
+    BoxLayout:
+        orientation: 'vertical'
+        
+        Image:
+            id: result_image
+            size_hint: 1, 0.7
+            
+        BoxLayout:
+            size_hint: 1, 0.15
+            spacing: 10
+            
+            Button:
+                text: 'Capture Signature'
+                on_press: root.capture_signature()
+                
+            Button:
+                text: 'User Guide'
+                on_press: root.go_to_guide()
+                
+        Label:
+            id: result_label
+            size_hint: 1, 0.15
+            text: 'Ready to scan'
