@@ -95,6 +95,22 @@ class DashboardScreen(Screen):
         for btn in [capture_btn, upload_btn, verify_btn, guide_btn]:
             self.btn_layout.add_widget(btn)
 
+        # Add the small "About" button at the top-right corner
+        about_btn = Button(
+            text="?",
+            size_hint=(None, None),
+            size=(40, 40),  # Small size
+            background_normal='',
+            background_color=(0.3, 0.6, 0.9, 1),
+            color=(1, 1, 1, 1),
+            font_size='18sp',
+            pos_hint={'right': 1, 'top': 1}  # Absolute positioning
+        )
+        about_btn.bind(on_press=self.show_about_popup)
+
+        # Add the "About" button to the screen
+        self.add_widget(about_btn)
+
     def create_rounded_button(self, text, callback, size_hint=(1, None), height=50):
         """Helper to create a button with rounded corners"""
         btn = Button(
@@ -407,3 +423,48 @@ class DashboardScreen(Screen):
         with instance.canvas.before:
             Color(0.9, 0.9, 0.9, 1)  # Light gray background
             RoundedRectangle(pos=instance.pos, size=instance.size, radius=[10])
+
+    def show_about_popup(self, instance):
+        """Show a popup with the creators of the app."""
+        from kivy.uix.modalview import ModalView
+        from kivy.uix.boxlayout import BoxLayout
+        from kivy.uix.label import Label
+        from kivy.uix.button import Button
+
+        # Create the modal view with a white background
+        modal = ModalView(size_hint=(0.8, 0.4), background_color=(1, 1, 1, 1))
+
+        # Main layout for the popup
+        layout = BoxLayout(orientation='vertical', spacing=20, padding=20)
+
+        # Add a label with the creators' information
+        creators_label = Label(
+            text="[b]Creators:[/b]\n- Mohamed FAKRI\n- Amine TABI",
+            markup=True,
+			font_size='18sp',
+            color=(1, 1, 1, 1),  # Black text
+            halign='left',
+            valign='middle',
+            size_hint=(1, 0.8)
+        )
+        creators_label.bind(size=creators_label.setter('text_size'))
+
+        # Add a dismiss button
+        dismiss_btn = Button(
+            text="Close",
+            size_hint=(0.5, None),
+            height=50,
+            background_normal='',
+            background_color=(0.3, 0.6, 0.9, 1),
+            color=(1, 1, 1, 1),
+            font_size='18sp'
+        )
+        dismiss_btn.bind(on_press=modal.dismiss)
+
+        # Add widgets to the layout
+        layout.add_widget(creators_label)
+        layout.add_widget(dismiss_btn)
+
+        # Add the layout to the modal and open it
+        modal.add_widget(layout)
+        modal.open()
