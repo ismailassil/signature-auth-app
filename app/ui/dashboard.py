@@ -212,8 +212,8 @@ class DashboardScreen(Screen):
                     result_text = f"Signature is Forged\n(Confidence: {confidence})"
                     result_color = (1, 0, 0, 1)  # Red for failure
                 else:
-                    result_text = f"Signature authenticity Unknown\n(Confidence: {confidence})"
-                    result_color = (1, 0.5, 0, 1)  # Orange for unknown
+                    result_text = "Verification failed."
+                    result_color = (1, 0, 0, 1)  # Red for failure
 
             except Exception as e:
                 result_text = f"Verification error: {str(e)}"

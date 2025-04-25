@@ -15,6 +15,8 @@ class SignatureVerifier:
         self.model = None
         self.reference_embeddings = None
         self.embeddings_loaded = False
+        self.reference_embeddings_cache = None
+        self.db_last_modified = None
 
     def initialize_model(self):
         print("[DEBUG] Initializing model...")
@@ -37,6 +39,9 @@ class SignatureVerifier:
             real_path = os.path.join(db_path, "real")
 
             if os.path.exists(real_path):
+                total_files = len([f for f in os.listdir(real_path) if f.lower().endswith((".png", ".jpg", ".jpeg"))])
+                loaded_files = 0
+
                 for file in os.listdir(real_path):
                     if file.lower().endswith((".png", ".jpg", ".jpeg")):
                         file_path = os.path.join(real_path, file)
@@ -49,12 +54,24 @@ class SignatureVerifier:
                             # Update reference_embeddings incrementally
                             self.reference_embeddings = embeddings
 
+                            # Increment progress
+                            loaded_files += 1
+                            progress = (loaded_files / total_files) * 100
+                            print(f"[DEBUG] Loading progress: {progress:.2f}%")
+
+            self.reference_embeddings_cache = embeddings
+            self.db_last_modified = self.get_db_last_modified_time()
             self.embeddings_loaded = True
             print("[DEBUG] Finished loading database embeddings.")
 
         # Run the embedding loading in a background thread
         thread = threading.Thread(target=load_embeddings)
         thread.start()
+
+    def get_db_last_modified_time(self):
+        db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../db_signatures')
+        return max(os.path.getmtime(os.path.join(root, file))
+                   for root, _, files in os.walk(db_path) for file in files)
 
     def correct_image_orientation(self, image, for_display=False):
         """Correct the orientation of the image if needed."""
@@ -70,10 +87,14 @@ class SignatureVerifier:
             outputs = self.model.get_image_features(**inputs)
         return outputs.cpu().numpy()
 
-    def verify_signature(self, query_image, threshold=0.985, margin=0.05):
-        # Initialize model and embeddings if not already done
-        self.initialize_model()
+    def verify_signature(self, query_image, threshold=0.985):
+        # Check if the database has changed
+        current_db_modified = self.get_db_last_modified_time()
+        if self.db_last_modified != current_db_modified:
+            print("[DEBUG] Database has changed. Reloading embeddings...")
+            self.load_database_embeddings_async()
 
+        # Wait for embeddings to load if necessary
         if not self.embeddings_loaded:
             raise RuntimeError("Database embeddings are still loading. Please try again later.")
 
@@ -93,13 +114,15 @@ class SignatureVerifier:
 
         max_real_similarity = max(similarity_scores) if similarity_scores else 0
 
-        # Determine result based on threshold and margin
-        if max_real_similarity > (threshold + margin) * 100:
+        # Debugging logs for thresholds and classification
+        print(f"[DEBUG] Max similarity: {max_real_similarity}%")
+        print(f"[DEBUG] Threshold: {threshold * 100}%")
+
+        # Determine result based on threshold
+        if max_real_similarity >= threshold * 100:
             return "Authentic", f"{max_real_similarity:.2f}%"
-        elif max_real_similarity < (threshold - margin) * 100:
-            return "Forged", f"{max_real_similarity:.2f}%"
         else:
-            return "Unknown", f"{max_real_similarity:.2f}%"
+            return "Forged", f"{max_real_similarity:.2f}%"
 
     def get_loading_progress(self):
         """Returns the progress of loading embeddings as a percentage."""
