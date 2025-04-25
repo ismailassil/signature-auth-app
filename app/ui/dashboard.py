@@ -1,17 +1,20 @@
 from kivy.uix.screenmanager import Screen
 from kivy.lang import Builder
 from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.camera import Camera
-from kivy.uix.button import Button
 from kivy.uix.image import Image
 from kivy.uix.label import Label
 from kivy.uix.popup import Popup
 from kivy.graphics.texture import Texture
-from kivy.graphics import Color, Rectangle, RoundedRectangle
+from kivy.graphics import Color, RoundedRectangle
 from kivy.core.window import Window
 import cv2
 import numpy as np
 import os
+from app.core.verification import SignatureVerifier
+from kivy.uix.button import Button
+from kivy.clock import Clock
+from kivy.uix.progressbar import ProgressBar
+from kivy.app import App
 
 # Builder.load_file(os.path.join(os.path.dirname(__file__), 'dashboard.kv'))
 
@@ -65,14 +68,21 @@ class DashboardScreen(Screen):
             text="Awaiting result...",
             size_hint=(1, 0.1),
             color=(0.3, 0.3, 0.3, 1),
-            font_size='16sp'
+            font_size='16sp',
+            text_size=(Window.width - 80, None),  # Constrain text width
+            halign='center',
+            valign='middle'
         )
         self.result_label.bind(size=self.update_result_label_canvas, pos=self.update_result_label_canvas)
 
         # Add widgets that don't depend on image
         self.layout.add_widget(self.btn_layout)
         self.layout.add_widget(self.result_label)
-        
+
+        # Add a progress bar for embedding loading
+        self.progress_bar = ProgressBar(max=100, size_hint=(1, None), height=20)
+        self.layout.add_widget(self.progress_bar)
+
         self.add_widget(self.layout)
 
         # Initialize UI components (buttons)
@@ -81,18 +91,59 @@ class DashboardScreen(Screen):
         # Store the uploaded image
         self.query_image = None
 
+        # Use the shared SignatureVerifier instance from the App
+        self.verifier = App.get_running_app().signature_verifier
+
+    def on_enter(self):
+        super().on_enter()
+        # Use the progress_bar and verify_button attributes directly
+        self.progress_event = Clock.schedule_interval(self.update_progress, 0.5)
+
+    def update_progress(self, dt):
+        # If embeddings have finished loading, fill the progress bar and enable the button
+        if self.verifier.embeddings_loaded:
+            self.progress_bar.value = self.progress_bar.max
+            self.progress_event.cancel()
+            for btn in self.btn_layout.children:
+                if btn.text == "Verify with DB":
+                    btn.disabled = False
+        else:
+            # Update progress based on loaded embeddings (if supported)
+            try:
+                progress = self.verifier.get_loading_progress()
+                print(f"[DEBUG] Current progress: {progress}%")
+                self.progress_bar.value = progress
+            except Exception:
+                pass  # Ignore errors in progress calculation
+
+    def enable_verification_button(self):
+        for btn in self.btn_layout.children:
+            if btn.text == "Verify with DB":
+                btn.disabled = False
+
     def initialize_ui_components(self):
         """Initialize UI components with rounded buttons"""
         self.btn_layout.clear_widgets()
 
         # Define buttons
-        capture_btn = self.create_rounded_button("Capture with Camera", self.capture_with_camera)
         upload_btn = self.create_rounded_button("Upload Image", self.show_file_chooser)
-        verify_btn = self.create_rounded_button("Verify with DB", self.verify_against_database)
+        # Disable the verify button initially
+        verify_btn = Button(
+            text="Verify with DB",
+            size_hint=(1, None),
+            height=50,
+            background_normal='',
+            background_color=(0.3, 0.6, 0.9, 1),
+            color=(1, 1, 1, 1),
+            font_size='18sp',
+            disabled=True
+        )
+        # Bind the verify button to the verify_against_database method
+        verify_btn.bind(on_press=self.verify_against_database)
         guide_btn = self.create_rounded_button("User Guide", self.go_to_guide)
 
         # Add buttons to the layout in the desired order
-        for btn in [capture_btn, upload_btn, verify_btn, guide_btn]:
+        for btn in [upload_btn, verify_btn, guide_btn]:
             self.btn_layout.add_widget(btn)
 
         # Add the small "About" button at the top-right corner
@@ -112,7 +163,7 @@ class DashboardScreen(Screen):
         self.add_widget(about_btn)
 
     def create_rounded_button(self, text, callback, size_hint=(1, None), height=50):
-        """Helper to create a button with rounded corners"""
+        """Helper to create a button with fully rounded corners"""
         btn = Button(
             text=text,
             size_hint=size_hint,
@@ -126,15 +177,20 @@ class DashboardScreen(Screen):
         btn.bind(on_press=callback)
         return btn
 
-    def update_button_canvas(self, instance, value):
-        """Update the canvas to draw a rounded rectangle behind the button."""
+    def update_button_canvas(self, instance, *args):
+        """Update the canvas to draw a fully rounded rectangle behind the button."""
         instance.canvas.before.clear()
         with instance.canvas.before:
             Color(*instance.background_color)  # Use the button's background color
-            r = instance.height * 0.5 if instance.height else 25  # Radius is 50% of height
-            RoundedRectangle(pos=instance.pos, size=instance.size, radius=[(r, r)] * 4)
+            r = instance.height * 0.5  # Radius is 50% of height
+            RoundedRectangle(pos=instance.pos, size=instance.size, radius=[(r, r), (r, r), (r, r), (r, r)])
 
     def verify_against_database(self, instance):
+        if not self.verifier.embeddings_loaded:  # Access embeddings_loaded from the verifier
+            self.result_label.text = "Embeddings are still loading. Please wait."
+            self.result_label.color = (1, 0, 0, 1)
+            return
+
         if self.query_image is None:
             self.result_label.text = "Please upload an image first."
             self.result_label.color = (1, 0, 0, 1)
@@ -147,36 +203,18 @@ class DashboardScreen(Screen):
 
         def worker():
             try:
-                from sklearn.metrics.pairwise import cosine_similarity
-                from app.core.verification import SignatureVerifier
-                import os
-                verifier = SignatureVerifier()
-                threshold = 0.85
-                query_embedding = verifier.get_embedding(self.query_image)
-                max_similarity = 0.0
+                result, confidence = self.verifier.verify_signature(self.query_image)
 
-                db_folder = os.path.join(os.getcwd(), "db_signatures")
-                if not os.path.exists(db_folder):
-                    result_text = f"Database folder not found: {db_folder}"
-                    result_color = (1, 0, 0, 1)
+                if result == "Authentic":
+                    result_text = f"Signature is Authentic\n(Confidence: {confidence})"
+                    result_color = (0, 0.7, 0, 1)  # Green for success
+                elif result == "Forged":
+                    result_text = f"Signature is Forged\n(Confidence: {confidence})"
+                    result_color = (1, 0, 0, 1)  # Red for failure
                 else:
-                    for file in os.listdir(db_folder):
-                        if file.lower().endswith((".png", ".jpg", ".jpeg")):
-                            file_path = os.path.join(db_folder, file)
-                            ref_image = cv2.imread(file_path)
-                            if ref_image is None:
-                                continue
-                            ref_embedding = verifier.get_embedding(ref_image)
-                            similarity = cosine_similarity(query_embedding, ref_embedding)[0][0]
-                            if similarity > max_similarity:
-                                max_similarity = similarity
+                    result_text = f"Signature authenticity Unknown\n(Confidence: {confidence})"
+                    result_color = (1, 0.5, 0, 1)  # Orange for unknown
 
-                    if max_similarity > threshold:
-                        self.result_label.text = f"Authenticated from DB (Max similarity: {max_similarity:.2f})"
-                        self.result_label.color = (0, 0.7, 0, 1)  # Green for success
-                    else:
-                        self.result_label.text = f"Not authenticated from DB (Max similarity: {max_similarity:.2f})"
-                        self.result_label.color = (1, 0, 0, 1)  # Red for failure
             except Exception as e:
                 result_text = f"Verification error: {str(e)}"
                 result_color = (1, 0, 0, 1)
@@ -185,6 +223,7 @@ class DashboardScreen(Screen):
                 self.result_label.text = result_text
                 self.result_label.color = result_color
                 loading_popup.dismiss()
+
             Clock.schedule_once(update_ui)
 
         threading.Thread(target=worker).start()
@@ -275,8 +314,8 @@ class DashboardScreen(Screen):
                 raise ValueError("Image too small (min 50x50 pixels).")
 
             self.query_image = image  # store the uploaded image for later use
-            
-            # Display the image as before
+
+            # Display the image as it is without rotation
             image_data = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             h, w, _ = image_data.shape
             buf = image_data.tobytes()
@@ -289,6 +328,59 @@ class DashboardScreen(Screen):
 
     def go_to_guide(self, instance):
         self.manager.current = 'guide'
+
+    def show_user_guide(self):
+        """Displays the user guide in a popup."""
+        from kivy.uix.modalview import ModalView
+        from kivy.uix.boxlayout import BoxLayout
+        from kivy.uix.label import Label
+        from kivy.uix.button import Button
+
+        # Create the modal view
+        modal = ModalView(size_hint=(0.9, 0.8), background_color=(0, 0, 0, 0.5))
+
+        # Main layout for the popup
+        layout = BoxLayout(orientation='vertical', spacing=20, padding=20)
+
+        # Add a label with the user guide content
+        guide_label = Label(
+            text="""
+            [b]User Guide[/b]
+
+            1. Click the "Upload Image" button to select a signature image.
+            2. Ensure the image is in PNG, JPG, or JPEG format.
+            3. Once uploaded, click "Verify with DB" to start verification.
+            4. Wait for the result to display the authenticity and confidence score.
+            5. Use the "?" button for app information.
+            """,
+            markup=True,
+            font_size='16sp',
+            color=(0, 0, 0, 1),
+            halign='left',
+            valign='middle',
+            size_hint=(1, 0.8)
+        )
+        guide_label.bind(size=guide_label.setter('text_size'))
+
+        # Add a dismiss button
+        dismiss_btn = Button(
+            text="Close",
+            size_hint=(0.5, None),
+            height=50,
+            background_normal='',
+            background_color=(0.3, 0.6, 0.9, 1),
+            color=(1, 1, 1, 1),
+            font_size='18sp'
+        )
+        dismiss_btn.bind(on_press=modal.dismiss)
+
+        # Add widgets to the layout
+        layout.add_widget(guide_label)
+        layout.add_widget(dismiss_btn)
+
+        # Add the layout to the modal and open it
+        modal.add_widget(layout)
+        modal.open()
 
     def process_image(self, image_data):
         try:
@@ -375,47 +467,6 @@ class DashboardScreen(Screen):
         # Add the layout to the modal and open it
         modal.add_widget(layout)
         modal.open()
-
-    def capture_with_camera(self, instance):
-        """Capture an image using the camera."""
-        try:
-            # Initialize the camera
-            camera = Camera(play=True, resolution=(640, 480))
-            popup = Popup(
-                title="Capture Image",
-                size_hint=(0.9, 0.9)
-            )
-
-            # Add a capture button
-            capture_btn = Button(
-                text="Capture",
-                size_hint=(1, 0.1),
-                background_normal='',
-                background_color=(0.3, 0.6, 0.9, 1),
-                color=(1, 1, 1, 1),
-                font_size='18sp'
-            )
-
-            def capture_image(*args):
-                texture = camera.texture
-                if texture:
-                    # Convert the texture to an image
-                    image_data = np.frombuffer(texture.pixels, np.uint8).reshape(
-                        texture.height, texture.width, 4
-                    )
-                    self.process_image(image_data)
-                popup.dismiss()
-
-            capture_btn.bind(on_press=capture_image)
-
-            # Add the camera and button to the popup
-            popup.content = BoxLayout(orientation='vertical')
-            popup.content.add_widget(camera)
-            popup.content.add_widget(capture_btn)
-
-            popup.open()
-        except Exception as e:
-            self.show_error_popup(f"Error initializing camera: {str(e)}")
 
     def update_result_label_canvas(self, instance, value):
         """Update the background of the result label."""

@@ -56,33 +56,25 @@ class GuideScreen(Screen):
         # Guide content sections
         sections = [
             {
-                "title": "1. How to Use",
+                "title": "What the App Does",
                 "content": dedent("""
-                    - Tap [b]"Capture Signature"[/b] to take a photo of the signature
-                    - Position the signature clearly in the frame
-                    - Tap [b]"Take Photo"[/b] to capture the image
-                    - The app will analyze and verify the signature
+                    - This app verifies the authenticity of handwritten and electronic signatures.
+                    - It uses AI to compare uploaded signatures against a database of authentic and forged samples.
+                    - The app provides a confidence score to indicate the likelihood of authenticity.
                 """).strip()
             },
             {
-                "title": "2. Understanding Results",
+                "title": "How to Use the App",
                 "content": dedent("""
-                    - [color=00AA00]Green result[/color] means the signature is likely authentic
-                    - [color=FF3333]Red result[/color] means the signature may be forged
-                    - Confidence score shows how certain the system is (0-1 scale)
-                """).strip()
-            },
-            {
-                "title": "3. Best Practices",
-                "content": dedent("""
-                    - Ensure good lighting when capturing signatures
-                    - Capture on a clean, contrasting background
-                    - Hold the camera steady for clear images
-                    - For best results, compare against known authentic samples
+                    1. Launch the app to access the dashboard.
+                    2. Click the [b]"Upload Image"[/b] button to select a signature image from your device.
+                    3. Ensure the image is in PNG, JPG, or JPEG format.
+                    4. Once uploaded, click [b]"Verify with DB"[/b] to start the verification process.
+                    5. Wait for the app to display the result: Authentic, Forged, or Unknown, along with a confidence score.
                 """).strip()
             }
         ]
-        
+
         for section in sections:
             # Section title (centered)
             title = Label(
@@ -95,7 +87,7 @@ class GuideScreen(Screen):
             )
             title.bind(size=title.setter('text_size'))
             content_container.add_widget(title)
-            
+
             # Section content (left aligned)
             content = Label(
                 text=section['content'],
@@ -124,6 +116,9 @@ class GuideScreen(Screen):
             bold=True
         )
         back_btn.bind(on_press=self.go_to_dashboard)
+
+        # Remove the rounded corners for the button
+        back_btn.canvas.before.clear()
         layout.add_widget(back_btn)
         
         self.add_widget(layout)

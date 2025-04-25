@@ -10,13 +10,29 @@ from kivy.uix.label import Label
 from kivy.uix.popup import Popup
 from kivy.clock import Clock
 import os
+import threading
+from app.core.verification import SignatureVerifier
 
 # Import screens
 from app.ui.dashboard import DashboardScreen
 from app.ui.guide import GuideScreen
 
+# Initialize the SignatureVerifier
+signature_verifier = SignatureVerifier()
+
+def load_embeddings_in_background():
+    print("[DEBUG] Starting embedding loading in a background thread...")
+    signature_verifier.initialize_model()
+    print("[DEBUG] Embedding loading completed.")
+
+# Start the embedding loading in a separate thread
+embedding_thread = threading.Thread(target=load_embeddings_in_background)
+embedding_thread.start()
+
 class SignatureAuthApp(App):
     def build(self):
+        # Expose the shared signature verifier on the App instance
+        self.signature_verifier = signature_verifier
         # Set window size for mobile (will be fullscreen on actual device)
         Window.size = (360, 640)
         
@@ -29,5 +45,8 @@ class SignatureAuthApp(App):
         
         return self.sm
 
-if __name__ == '__main__':
-    SignatureAuthApp().run()
+if __name__ == "__main__":
+    try:
+        SignatureAuthApp().run()
+    except KeyboardInterrupt:
+        print("\nApplication interrupted by user. Exiting gracefully...")
