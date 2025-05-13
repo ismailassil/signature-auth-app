@@ -6,9 +6,9 @@ This application allows users to verify the authenticity of handwritten and elec
 
 ## Features
 
--   **Handwritten Signature Verification**: Compares uploaded signatures against a database of authentic signatures.
--   **E-Signature Verification**: Checks the authenticity of electronic signatures using cryptographic hash comparison.
--   **User-Friendly Interface**: Simple and intuitive UI for uploading and verifying signatures.
+- **Handwritten Signature Verification**: Compares uploaded signatures against a database of authentic signatures.
+- **E-Signature Verification**: Checks the authenticity of electronic signatures using cryptographic hash comparison.
+- **User-Friendly Interface**: Simple and intuitive UI for uploading and verifying signatures.
 
 ---
 
@@ -16,9 +16,9 @@ This application allows users to verify the authenticity of handwritten and elec
 
 ### Prerequisites
 
--   Python 3.10 or higher
--   Virtual environment (optional but recommended)
--   Required Python libraries (see below)
+- Python 3.10 or Python 3.11 (3.11 is recommended)
+- Virtual environment (optional but recommended)
+- Required Python libraries (see below)
 
 ### Steps
 
@@ -74,11 +74,9 @@ The Signature Authentication App uses advanced AI and machine learning technique
 
 The AI model is trained on a diverse dataset of real and forged signatures. The training process involves:
 
--   **Data Augmentation**: Enhancing the dataset with variations in rotation, scaling, and noise to improve model robustness.
-
--   **Supervised Learning**: Using labeled data to teach the model to distinguish between real and forged signatures.
-
--   **Evaluation**: Testing the model on unseen data to ensure high accuracy and reliability.
+- **Data Augmentation**: Enhancing the dataset with variations in rotation, scaling, and noise to improve model robustness.
+- **Supervised Learning**: Using labeled data to teach the model to distinguish between real and forged signatures.
+- **Evaluation**: Testing the model on unseen data to ensure high accuracy and reliability.
 
 By leveraging these techniques, the app achieves a high level of precision in detecting forged signatures, making it a reliable tool for authentication.
 
