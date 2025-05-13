@@ -16,7 +16,7 @@ This application allows users to verify the authenticity of handwritten and elec
 
 ### Prerequisites
 
-- Python 3.10 or Python 3.11 (3.11 is recommended)
+- Python 3.11 or above (3.11 is recommended)
 - Virtual environment (optional but recommended)
 - Required Python libraries (see below)
 
