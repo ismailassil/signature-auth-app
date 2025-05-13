@@ -13,7 +13,7 @@ package.domain = org.example
 source.dir = .
 
 # (list) Source files to include (let empty to include all the files)
-source.include_exts = py,png,jpg,kv,atlas
+source.include_exts = py,png,jpg,kv,atlas,gif
 
 # (list) List of inclusions using pattern matching
 #source.include_patterns = assets/*,images/*.png
@@ -249,6 +249,8 @@ android.arch = armeabi-v7a
 
 # (bool) If True, then the Android build will use the "--no-ff" option
 # android.no_ff = False
+
+android.permissions = READ_EXTERNAL_STORAGE
 
 [buildozer]
 
